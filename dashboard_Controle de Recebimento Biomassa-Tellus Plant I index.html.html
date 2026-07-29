@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard de Controle de Biomassa - Tellus</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js para gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- SheetJS para ler Excel (.xlsx) no navegador -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tellus: {
+              50: '#e6f4ff',
+              100: '#b8e1ff',
+              500: '#0088cc',
+              600: '#00a3e0',
+              700: '#005f9e',
+              800: '#0d223a',
+              900: '#081426',
+              950: '#040b17'
+            },
+            card: {
+              bg: '#102036',
+              border: '#1e3454',
+              hover: '#162b48'
+            },
+            vivid: {
+              emerald: '#10b981',
+              cyan: '#06b6d4',
+              blue: '#3b82f6',
+              amber: '#f59e0b',
+              coral: '#f43f5e',
+              purple: '#a855f7',
+              indigo: '#6366f1'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #081426;
+      color: #f1f5f9;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    .card-shadow {
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0d1e36;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #203a5e;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col custom-scrollbar" onclick="closeAllDropdowns(event)">
+
+  <!-- Cabeçalho -->
+  <header class="bg-tellus-900 border-b border-card-border sticky top-0 z-30 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center space-x-4">
+        <!-- Logo Oficial Tellus -->
+        <div class="flex items-center bg-white/90 p-2 rounded-xl backdrop-blur-sm border border-white/20">
+          <img src="Tellus_Logo.png" alt="Tellus Logo" class="h-9 w-auto object-contain" onerror="this.onerror=null; this.src='https://placehold.co/160x50/0b2545/ffffff?text=TELLUS';">
+        </div>
+        <div class="h-8 w-px bg-card-border hidden sm:block"></div>
+        <div>
+          <h1 class="text-lg font-bold text-white leading-tight">Gestão & Controle de Biomassa - Tellus</h1>
+          <p class="text-xs text-slate-400 font-medium">Recepção, Qualidade e Desempenho Operacional</p>
+        </div>
+      </div>
+
+      <!-- Ações do Topo -->
+      <div class="flex items-center space-x-3">
+        <label class="cursor-pointer inline-flex items-center gap-2 bg-gradient-to-r from-tellus-500 to-vivid-blue hover:from-tellus-600 hover:to-vivid-indigo text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-lg transition-all transform hover:-translate-y-0.5">
+          <i class="fa-solid fa-cloud-arrow-up text-vivid-cyan"></i>
+          <span>Carregar Base (.xlsx / .csv)</span>
+          <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" class="hidden">
+        </label>
+        
+        <button onclick="clearAllData()" title="Limpar dados carregados" class="p-2.5 text-slate-300 hover:text-white bg-card-bg hover:bg-card-hover rounded-xl transition-colors border border-card-border">
+          <i class="fa-solid fa-rotate"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Conteúdo Principal -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+
+    <!-- Painel de Filtros -->
+    <section class="bg-card-bg rounded-2xl p-4 card-shadow border border-card-border flex flex-wrap gap-4 items-center justify-between">
+      <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mr-2">
+          <i class="fa-solid fa-filter text-vivid-cyan"></i> Filtros:
+        </span>
+        
+        <!-- Filtro Padrão Fornecedor -->
+        <select id="filterSupplier" onchange="onSupplierChange()" class="bg-tellus-900 border border-card-border text-slate-200 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-vivid-blue font-medium min-w-[170px]">
+          <option value="ALL">Todos os Fornecedores</option>
+        </select>
+
+        <!-- Filtro Setor -->
+        <select id="filterSector" onchange="applyFilters()" class="bg-tellus-900 border border-card-border text-slate-200 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-vivid-blue font-medium min-w-[150px]">
+          <option value="ALL">Todos os Setores</option>
+        </select>
+
+        <!-- Filtro Múltiplo de Local de Coleta (Condicionado ao Fornecedor) -->
+        <div class="relative" id="locationDropdownContainer">
+          <button type="button" onclick="toggleLocationDropdown(event)" class="bg-tellus-900 border border-card-border text-slate-200 text-sm rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-vivid-blue font-medium min-w-[190px] flex items-center justify-between gap-2">
+            <span id="locationDropdownLabel" class="truncate">Locais: Todos</span>
+            <i class="fa-solid fa-chevron-down text-xs text-slate-400"></i>
+          </button>
+          
+          <div id="locationDropdownMenu" class="hidden absolute left-0 mt-2 w-64 bg-tellus-900 border border-card-border rounded-xl shadow-2xl p-3 z-50 max-h-60 overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between pb-2 mb-2 border-b border-card-border text-xs">
+              <label class="flex items-center gap-2 cursor-pointer font-bold text-vivid-cyan hover:text-white">
+                <input type="checkbox" id="selectAllLocations" onchange="toggleSelectAllLocations(this)" checked class="rounded border-card-border bg-tellus-800 text-tellus-500 focus:ring-0">
+                <span>Selecionar Todos</span>
+              </label>
+              <span id="selectedLocationsCount" class="text-slate-400">Todos</span>
+            </div>
+            <div id="locationCheckboxesContainer" class="space-y-1.5 text-xs text-slate-300">
+              <span class="text-slate-500 italic">Carregue uma base de dados</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filtro de Data -->
+        <div class="flex items-center gap-2 bg-tellus-900 border border-card-border rounded-xl px-3 py-1.5">
+          <i class="fa-regular fa-calendar text-slate-400 text-sm"></i>
+          <input type="date" id="filterStartDate" onchange="applyFilters()" class="bg-transparent text-sm text-slate-200 outline-none [color-scheme:dark]">
+          <span class="text-slate-500 text-xs">até</span>
+          <input type="date" id="filterEndDate" onchange="applyFilters()" class="bg-transparent text-sm text-slate-200 outline-none [color-scheme:dark]">
+        </div>
+      </div>
+
+      <div class="text-xs font-semibold text-vivid-cyan bg-tellus-900 px-3 py-1.5 rounded-lg border border-card-border" id="recordCount">
+        Registros: 0
+      </div>
+    </section>
+
+    <!-- Cards de KPIs Principais -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      
+      <!-- KPI 1: Volume Total -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border relative overflow-hidden flex flex-col justify-between">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-vivid-blue/15 rounded-full blur-xl"></div>
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Volume Recebido</p>
+            <h3 class="text-2xl font-black text-white mt-1" id="kpiTotalWeight">0 <span class="text-sm font-semibold text-slate-400">Ton</span></h3>
+          </div>
+          <div class="p-3 bg-blue-500/10 text-vivid-blue border border-blue-500/20 rounded-xl">
+            <i class="fa-solid fa-truck-ramp-box text-lg"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center gap-2 text-xs text-slate-400 font-medium">
+          <span class="text-vivid-cyan font-bold bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md" id="kpiTotalTrips">0 viagens</span>
+          <span>no período</span>
+        </div>
+      </div>
+
+      <!-- KPI 2: Umidade Média -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border relative overflow-hidden flex flex-col justify-between">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-vivid-cyan/15 rounded-full blur-xl"></div>
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Umidade Média</p>
+            <h3 class="text-2xl font-black text-white mt-1" id="kpiAvgMoisture">0.0 <span class="text-sm font-semibold text-slate-400">%</span></h3>
+          </div>
+          <div class="p-3 bg-cyan-500/10 text-vivid-cyan border border-cyan-500/20 rounded-xl">
+            <i class="fa-solid fa-droplet text-lg"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center gap-2 text-xs text-slate-400 font-medium">
+          <span class="font-bold px-2 py-0.5 rounded-md" id="kpiMoistureStatus">Aguardando Dados</span>
+          <span>qualidade média</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Densidade Média -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border relative overflow-hidden flex flex-col justify-between">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-vivid-amber/15 rounded-full blur-xl"></div>
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Densidade Média</p>
+            <h3 class="text-2xl font-black text-white mt-1" id="kpiAvgDensity">0 <span class="text-sm font-semibold text-slate-400">kg/m³</span></h3>
+          </div>
+          <div class="p-3 bg-amber-500/10 text-vivid-amber border border-amber-500/20 rounded-xl">
+            <i class="fa-solid fa-cubes text-lg"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center gap-2 text-xs text-slate-400 font-medium">
+          <span class="text-vivid-amber font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">Compactação</span>
+          <span>densidade média</span>
+        </div>
+      </div>
+
+      <!-- KPI 4: Tempo Médio de Ciclo -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border relative overflow-hidden flex flex-col justify-between">
+        <div class="absolute -right-3 -top-3 w-20 h-20 bg-vivid-purple/15 rounded-full blur-xl"></div>
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tempo Médio Pátio</p>
+            <h3 class="text-2xl font-black text-white mt-1" id="kpiAvgTime">0 <span class="text-sm font-semibold text-slate-400">min</span></h3>
+          </div>
+          <div class="p-3 bg-purple-500/10 text-vivid-purple border border-purple-500/20 rounded-xl">
+            <i class="fa-solid fa-clock text-lg"></i>
+          </div>
+        </div>
+        <div class="mt-4 flex items-center gap-2 text-xs text-slate-400 font-medium">
+          <span class="text-vivid-purple font-bold bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md">Entrada x Saída</span>
+          <span>permanência</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Seção de Gráficos Nível 1: Evolução + Setores -->
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      
+      <!-- Gráfico de Evolução Diária -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border lg:col-span-2">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="font-bold text-white text-base">Evolução do Recebimento de Biomassa</h2>
+            <p class="text-xs text-slate-400">Toneladas acumuladas e média de umidade por dia</p>
+          </div>
+          <span class="p-2 bg-tellus-900 border border-card-border rounded-lg text-slate-400 text-xs font-medium">Diário</span>
+        </div>
+        <div class="h-72 w-full relative">
+          <canvas id="chartEvolution"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico de Distribuição por Setor de Armazenamento -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="font-bold text-white text-base">Alocação nos Setores</h2>
+            <p class="text-xs text-slate-400">Distribuição do peso por Galpão / Área</p>
+          </div>
+        </div>
+        <div class="h-72 w-full relative flex items-center justify-center">
+          <canvas id="chartSectors"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Seção de Gráficos Nível 2: Análise por Locais de Coleta (Volume + Carradas) -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Total de Volume por Local de Coleta -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="font-bold text-white text-base">Volume Total por Local de Coleta</h2>
+            <p class="text-xs text-slate-400">Total acumulado em toneladas por origem da biomassa</p>
+          </div>
+        </div>
+        <div class="h-64 w-full relative">
+          <canvas id="chartLocationsVolume"></canvas>
+        </div>
+      </div>
+
+      <!-- Total de Carradas por Local de Coleta -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="font-bold text-white text-base">Total de Carradas por Local</h2>
+            <p class="text-xs text-slate-400">Quantidade de viagens/cargas entregues por local</p>
+          </div>
+        </div>
+        <div class="h-64 w-full relative">
+          <canvas id="chartLocationsTrips"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Seção de Gráficos Nível 3: Densidade por Carregamento + Top Fornecedores -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Densidade Média por Método de Carregamento -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="font-bold text-white text-base">Densidade Média por Método de Carregamento</h2>
+            <p class="text-xs text-slate-400">Comparativo de densidade (kg/m³) por modalidade de carga</p>
+          </div>
+        </div>
+        <div class="h-56 max-w-lg mx-auto w-full relative">
+          <canvas id="chartDensityMethod"></canvas>
+        </div>
+      </div>
+
+      <!-- Top Fornecedores por Volume -->
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="font-bold text-white text-base">Top Fornecedores (Toneladas)</h2>
+            <p class="text-xs text-slate-400">Volume total fornecido no período selecionado</p>
+          </div>
+        </div>
+        <div class="h-64 w-full relative">
+          <canvas id="chartSuppliers"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Seção de Gráficos Nível 4: Umidade por Fornecedor -->
+    <section class="grid grid-cols-1 gap-6">
+      <div class="bg-card-bg rounded-2xl p-5 card-shadow border border-card-border max-w-4xl mx-auto w-full">
+        <div class="flex justify-between items-center mb-4">
+          <div>
+            <h2 class="font-bold text-white text-base">Umidade Média por Fornecedor</h2>
+            <p class="text-xs text-slate-400">Indicador de qualidade da biomassa enviada (%)</p>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] font-semibold">
+            <span class="inline-flex items-center gap-1 text-emerald-400"><span class="w-2.5 h-2.5 rounded-full bg-vivid-emerald"></span> &le;12% Ideal</span>
+            <span class="inline-flex items-center gap-1 text-amber-400"><span class="w-2.5 h-2.5 rounded-full bg-vivid-amber"></span> 12-15% Aceitável</span>
+            <span class="inline-flex items-center gap-1 text-rose-400"><span class="w-2.5 h-2.5 rounded-full bg-vivid-coral"></span> &gt;15% Alta</span>
+          </div>
+        </div>
+        <div class="h-56 w-full relative">
+          <canvas id="chartMoistureSupplier"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabela Detalhada de Cargas com Filtro/Seletor de Colunas Extras -->
+    <section class="bg-card-bg rounded-2xl card-shadow border border-card-border overflow-hidden">
+      <div class="p-5 border-b border-card-border flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h2 class="font-bold text-white text-base">Registros de Chegada de Biomassa</h2>
+          <p class="text-xs text-slate-400">Visualização padrão com colunas essenciais fixas</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Dropdown para selecionar colunas adicionais para visualização -->
+          <div class="relative" id="columnSelectorContainer">
+            <button type="button" onclick="toggleColumnDropdown(event)" class="bg-tellus-900 border border-card-border text-slate-200 text-xs rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-vivid-blue font-medium flex items-center gap-2">
+              <i class="fa-solid fa-columns text-vivid-cyan"></i>
+              <span id="columnDropdownLabel">Colunas Adicionais (0)</span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+            </button>
+            <div id="columnDropdownMenu" class="hidden absolute right-0 mt-2 w-60 bg-tellus-900 border border-card-border rounded-xl shadow-2xl p-3 z-50 max-h-60 overflow-y-auto custom-scrollbar">
+              <div class="text-xs font-bold text-slate-400 pb-2 mb-2 border-b border-card-border">Exibir colunas extras:</div>
+              <div id="columnCheckboxesContainer" class="space-y-1.5 text-xs text-slate-300">
+                <span class="text-slate-500 italic">Nenhuma coluna extra na base</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Busca rápida -->
+          <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Buscar placa, fornecedor, ID..." class="bg-tellus-900 border border-card-border text-xs text-slate-200 rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-vivid-blue w-60 placeholder-slate-500">
+        </div>
+      </div>
+
+      <div class="overflow-x-auto max-h-96 custom-scrollbar">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead id="tableHeader" class="bg-tellus-900 text-slate-400 uppercase font-bold sticky top-0 z-10 border-b border-card-border">
+            <tr>
+              <th class="py-3.5 px-4">ID Carga</th>
+              <th class="py-3.5 px-4">Data</th>
+              <th class="py-3.5 px-4 min-w-[170px]">Horários Pátio</th>
+              <th class="py-3.5 px-4">Placa / Motorista</th>
+              <th class="py-3.5 px-4">Fornecedor</th>
+              <th class="py-3.5 px-4">Local Coleta</th>
+              <th class="py-3.5 px-4">Método</th>
+              <th class="py-3.5 px-4 text-right">Peso Líq. (kg)</th>
+              <th class="py-3.5 px-4 text-right">Umidade (%)</th>
+              <th class="py-3.5 px-4 text-right">Densidade</th>
+              <th class="py-3.5 px-4">Setor</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-card-border font-medium">
+            <!-- Preenchido via JS após upload -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Rodapé -->
+  <footer class="bg-tellus-900 border-t border-card-border py-4 text-center text-xs text-slate-400 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+      <span>Tellus • Painel Operacional de Biomassa</span>
+      <span class="text-[11px] text-slate-500">Filtro de locais dependente do fornecedor selecionado</span>
+    </div>
+  </footer>
+
+  <!-- Lógica JavaScript -->
+  <script>
+    let currentData = [];
+    let extraColumns = [];
+    let selectedExtraColumns = new Set(); // Colunas extras ativas na tabela
+
+    let chartEvolution, chartSectors, chartLocationsVolume, chartLocationsTrips, chartDensityMethod, chartSuppliers, chartMoistureSupplier;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initCharts();
+      applyFilters();
+      document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+    });
+
+    function toggleLocationDropdown(e) {
+      e.stopPropagation();
+      const menu = document.getElementById('locationDropdownMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    function toggleColumnDropdown(e) {
+      e.stopPropagation();
+      const menu = document.getElementById('columnDropdownMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    function closeAllDropdowns(e) {
+      const locContainer = document.getElementById('locationDropdownContainer');
+      if (locContainer && !locContainer.contains(e.target)) {
+        document.getElementById('locationDropdownMenu').classList.add('hidden');
+      }
+
+      const colContainer = document.getElementById('columnSelectorContainer');
+      if (colContainer && !colContainer.contains(e.target)) {
+        document.getElementById('columnDropdownMenu').classList.add('hidden');
+      }
+    }
+
+    function clearAllData() {
+      currentData = [];
+      extraColumns = [];
+      selectedExtraColumns.clear();
+      updateColumnSelectorUI();
+      populateStandardFilters();
+      applyFilters();
+      document.getElementById('fileInput').value = '';
+    }
+
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      
+      reader.onload = function(evt) {
+        try {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          
+          let sheetName = workbook.SheetNames.find(name => name.toLowerCase().includes('chegada') || name.toLowerCase().includes('biomassa')) || workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          if (jsonData.length < 2) {
+            alert('O arquivo selecionado está vazio ou não possui linhas suficientes.');
+            return;
+          }
+
+          let headerRowIndex = -1;
+          for (let i = 0; i < Math.min(15, jsonData.length); i++) {
+            const rowStr = (jsonData[i] || []).join(' ').toLowerCase();
+            if (rowStr.includes('id') || rowStr.includes('carga') || rowStr.includes('placa') || rowStr.includes('fornecedor')) {
+              headerRowIndex = i;
+              break;
+            }
+          }
+
+          if (headerRowIndex === -1) {
+            headerRowIndex = 0;
+          }
+
+          const rawHeaders = jsonData[headerRowIndex].map(h => String(h || '').trim()).filter(h => h !== '');
+          const rows = jsonData.slice(headerRowIndex + 1);
+
+          const findCol = (terms) => rawHeaders.findIndex(h => terms.some(t => h.toLowerCase().includes(t)));
+
+          const idxId = findCol(['id carga', 'id_carga', 'id', 'carga']);
+          const idxData = findCol(['data']);
+          const idxEntrada = findCol(['chegada', 'entrada', 'horário de chegada']);
+          const idxSaida = findCol(['saída', 'horário de saída', 'saida']);
+          const idxPlaca = findCol(['placa']);
+          const idxMotorista = findCol(['motorista']);
+          const idxFornecedor = findCol(['fornecedor']);
+          const idxLocal = findCol(['local', 'coleta']);
+          const idxPeso = findCol(['peso líquido', 'peso liq', 'líquido', 'liquido']);
+          const idxUmidade = findCol(['umidade']);
+          const idxDensidade = findCol(['densidade']);
+          const idxSetor = findCol(['setor', 'armazenamento']);
+          const idxMetodo = findCol(['método', 'metodo', 'carregamento']);
+
+          const standardIndices = [idxId, idxData, idxEntrada, idxSaida, idxPlaca, idxMotorista, idxFornecedor, idxLocal, idxPeso, idxUmidade, idxDensidade, idxSetor, idxMetodo];
+          
+          extraColumns = rawHeaders.map((headerName, index) => {
+            return { index, name: headerName };
+          }).filter(col => !standardIndices.includes(col.index) && col.name !== '');
+
+          selectedExtraColumns.clear();
+
+          const parsedData = [];
+
+          rows.forEach((row) => {
+            if (!row || row.length === 0) return;
+
+            const rawId = idxId !== -1 && row[idxId] !== undefined ? String(row[idxId]).trim() : '';
+            if (!rawId || rawId.toLowerCase().includes('total') || rawId.toLowerCase().includes('controle')) {
+              return;
+            }
+
+            const rawPesoStr = idxPeso !== -1 && row[idxPeso] !== undefined ? String(row[idxPeso]).replace(',', '.').replace(/[^0-9.]/g, '') : '0';
+            const rawUmidadeStr = idxUmidade !== -1 && row[idxUmidade] !== undefined ? String(row[idxUmidade]).replace(',', '.').replace(/[^0-9.]/g, '') : '0';
+            const rawDensidadeStr = idxDensidade !== -1 && row[idxDensidade] !== undefined ? String(row[idxDensidade]).replace(',', '.').replace(/[^0-9.]/g, '') : '0';
+
+            const rawPeso = parseFloat(rawPesoStr) || 0;
+            const rawUmidade = parseFloat(rawUmidadeStr) || 0;
+            const rawDensidade = parseFloat(rawDensidadeStr) || 0;
+
+            let formatTime = (timeVal) => {
+              if (!timeVal) return '--:--';
+              if (typeof timeVal === 'number') {
+                const totalSeconds = Math.round(timeVal * 86400);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+              }
+              const strVal = String(timeVal).trim();
+              if (strVal.includes(':')) {
+                const parts = strVal.split(':');
+                return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+              }
+              return strVal;
+            };
+
+            const horaEntrada = idxEntrada !== -1 ? formatTime(row[idxEntrada]) : '--:--';
+            const horaSaida = idxSaida !== -1 ? formatTime(row[idxSaida]) : '--:--';
+
+            let rawDataVal = idxData !== -1 ? row[idxData] : null;
+            let formattedDate = "";
+            if (rawDataVal) {
+              if (typeof rawDataVal === 'number') {
+                const dateObj = new Date(Math.round((rawDataVal - (25567 + 2)) * 86400 * 1000));
+                formattedDate = dateObj.toISOString().split('T')[0];
+              } else {
+                formattedDate = String(rawDataVal).trim();
+              }
+            }
+
+            let extrasObj = {};
+            extraColumns.forEach(col => {
+              extrasObj[col.name] = row[col.index] !== undefined && row[col.index] !== null ? String(row[col.index]).trim() : 'N/D';
+            });
+
+            parsedData.push({
+              id: rawId,
+              data: formattedDate || new Date().toISOString().split('T')[0],
+              entrada: horaEntrada,
+              saida: horaSaida,
+              placa: idxPlaca !== -1 && row[idxPlaca] ? String(row[idxPlaca]).trim() : 'N/D',
+              motorista: idxMotorista !== -1 && row[idxMotorista] ? String(row[idxMotorista]).trim() : 'N/D',
+              fornecedor: idxFornecedor !== -1 && row[idxFornecedor] ? String(row[idxFornecedor]).trim() : 'Não Informado',
+              local: idxLocal !== -1 && row[idxLocal] ? String(row[idxLocal]).trim() : 'N/D',
+              pesoLiquido: rawPeso,
+              umidade: rawUmidade,
+              densidade: rawDensidade,
+              setor: idxSetor !== -1 && row[idxSetor] ? String(row[idxSetor]).trim() : 'Geral',
+              metodo: idxMetodo !== -1 && row[idxMetodo] ? String(row[idxMetodo]).trim() : 'Não Definido',
+              extras: extrasObj
+            });
+          });
+
+          if (parsedData.length > 0) {
+            currentData = parsedData;
+            updateColumnSelectorUI();
+            populateStandardFilters();
+            updateLocationCheckboxes();
+            applyFilters();
+            alert(`Base carregada com sucesso! ${parsedData.length} registros importados.`);
+          } else {
+            alert('Nenhum registro válido foi encontrado no arquivo.');
+          }
+
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao processar o arquivo. Certifique-se de carregar uma planilha válida.');
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    function updateColumnSelectorUI() {
+      const container = document.getElementById('columnCheckboxesContainer');
+      const label = document.getElementById('columnDropdownLabel');
+
+      if (extraColumns.length === 0) {
+        container.innerHTML = `<span class="text-slate-500 italic">Nenhuma coluna extra na base</span>`;
+        label.innerText = `Colunas Adicionais (0)`;
+        return;
+      }
+
+      container.innerHTML = extraColumns.map(col => {
+        const isChecked = selectedExtraColumns.has(col.name);
+        return `
+          <label class="flex items-center gap-2 cursor-pointer hover:text-white p-1 rounded hover:bg-tellus-800">
+            <input type="checkbox" value="${col.name}" ${isChecked ? 'checked' : ''} onchange="handleColumnToggle(this)" class="rounded border-card-border bg-tellus-800 text-tellus-500 focus:ring-0">
+            <span class="truncate">${col.name}</span>
+          </label>
+        `;
+      }).join('');
+
+      label.innerText = `Colunas Adicionais (${selectedExtraColumns.size})`;
+    }
+
+    function handleColumnToggle(checkbox) {
+      if (checkbox.checked) {
+        selectedExtraColumns.add(checkbox.value);
+      } else {
+        selectedExtraColumns.delete(checkbox.value);
+      }
+      updateColumnSelectorUI();
+      applyFilters();
+    }
+
+    function populateStandardFilters() {
+      const supplierSelect = document.getElementById('filterSupplier');
+      const sectorSelect = document.getElementById('filterSector');
+
+      const suppliers = [...new Set(currentData.map(d => d.fornecedor))].sort();
+      const sectors = [...new Set(currentData.map(d => d.setor))].sort();
+
+      supplierSelect.innerHTML = '<option value="ALL">Todos os Fornecedores</option>' + 
+        suppliers.map(s => `<option value="${s}">${s}</option>`).join('');
+
+      sectorSelect.innerHTML = '<option value="ALL">Todos os Setores</option>' + 
+        sectors.map(s => `<option value="${s}">${s}</option>`).join('');
+    }
+
+    // Atualiza os locais de coleta disponíveis com base no fornecedor selecionado
+    function updateLocationCheckboxes() {
+      const selectedSupplier = document.getElementById('filterSupplier').value;
+      const locationContainer = document.getElementById('locationCheckboxesContainer');
+
+      let relevantData = currentData;
+      if (selectedSupplier !== 'ALL') {
+        relevantData = currentData.filter(d => d.fornecedor === selectedSupplier);
+      }
+
+      const locations = [...new Set(relevantData.map(d => d.local))].sort();
+
+      if (locations.length === 0) {
+        locationContainer.innerHTML = `<span class="text-slate-500 italic">Nenhum local disponível</span>`;
+      } else {
+        locationContainer.innerHTML = locations.map(l => `
+          <label class="flex items-center gap-2 cursor-pointer hover:text-white p-1 rounded hover:bg-tellus-800">
+            <input type="checkbox" value="${l}" checked onchange="handleLocationChange()" class="location-checkbox rounded border-card-border bg-tellus-800 text-tellus-500 focus:ring-0">
+            <span class="truncate">${l}</span>
+          </label>
+        `).join('');
+      }
+
+      document.getElementById('selectAllLocations').checked = true;
+      updateLocationDropdownLabel();
+    }
+
+    function onSupplierChange() {
+      updateLocationCheckboxes();
+      applyFilters();
+    }
+
+    function toggleSelectAllLocations(master) {
+      const checkboxes = document.querySelectorAll('.location-checkbox');
+      checkboxes.forEach(cb => cb.checked = master.checked);
+      applyFilters();
+    }
+
+    function handleLocationChange() {
+      const checkboxes = document.querySelectorAll('.location-checkbox');
+      const selectAll = document.getElementById('selectAllLocations');
+      const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+      selectAll.checked = allChecked;
+      applyFilters();
+    }
+
+    function updateLocationDropdownLabel() {
+      const checkboxes = document.querySelectorAll('.location-checkbox');
+      const label = document.getElementById('locationDropdownLabel');
+      const countLabel = document.getElementById('selectedLocationsCount');
+
+      if (checkboxes.length === 0) {
+        label.innerText = "Locais: Nenhum";
+        countLabel.innerText = "Nenhum";
+        return;
+      }
+
+      const checked = Array.from(checkboxes).filter(cb => cb.checked);
+      if (checked.length === checkboxes.length || checked.length === 0) {
+        label.innerText = "Locais: Todos";
+        countLabel.innerText = "Todos";
+      } else if (checked.length === 1) {
+        label.innerText = `Local: ${checked[0].value}`;
+        countLabel.innerText = "1 sel.";
+      } else {
+        label.innerText = `Locais (${checked.length} sel.)`;
+        countLabel.innerText = `${checked.length} sel.`;
+      }
+    }
+
+    function applyFilters() {
+      const selectedSupplier = document.getElementById('filterSupplier').value;
+      const selectedSector = document.getElementById('filterSector').value;
+      const startDate = document.getElementById('filterStartDate').value;
+      const endDate = document.getElementById('filterEndDate').value;
+      const search = document.getElementById('searchInput').value.toLowerCase();
+
+      const locationCheckboxes = document.querySelectorAll('.location-checkbox');
+      const selectedLocations = Array.from(locationCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+      
+      updateLocationDropdownLabel();
+
+      const filtered = currentData.filter(d => {
+        const matchSupplier = selectedSupplier === 'ALL' || d.fornecedor === selectedSupplier;
+        const matchSector = selectedSector === 'ALL' || d.setor === selectedSector;
+        const matchLocation = selectedLocations.length === 0 || selectedLocations.includes(d.local);
+        const matchStart = !startDate || d.data >= startDate;
+        const matchEnd = !endDate || d.data <= endDate;
+
+        let matchSearch = !search || 
+          d.id.toLowerCase().includes(search) || 
+          d.fornecedor.toLowerCase().includes(search) || 
+          d.local.toLowerCase().includes(search) ||
+          d.placa.toLowerCase().includes(search) ||
+          d.motorista.toLowerCase().includes(search) ||
+          Object.values(d.extras).some(val => String(val).toLowerCase().includes(search));
+
+        return matchSupplier && matchSector && matchLocation && matchStart && matchEnd && matchSearch;
+      });
+
+      updateKPIs(filtered);
+      updateCharts(filtered);
+      renderTable(filtered);
+
+      document.getElementById('recordCount').innerText = `Registros: ${filtered.length}`;
+    }
+
+    function calculateDurationMinutes(entradaStr, saidaStr) {
+      if (!entradaStr || !saidaStr || entradaStr === '--:--' || saidaStr === '--:--') return null;
+      const [h1, m1] = entradaStr.split(':').map(Number);
+      const [h2, m2] = saidaStr.split(':').map(Number);
+      if (isNaN(h1) || isNaN(m1) || isNaN(h2) || isNaN(m2)) return null;
+      let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+      if (diff < 0) diff += 1440;
+      return diff;
+    }
+
+    function updateKPIs(data) {
+      if (data.length === 0) {
+        document.getElementById('kpiTotalWeight').innerHTML = `0 <span class="text-sm font-semibold text-slate-400">Ton</span>`;
+        document.getElementById('kpiTotalTrips').innerText = `0 viagens`;
+        document.getElementById('kpiAvgMoisture').innerHTML = `0.0 <span class="text-sm font-semibold text-slate-400">%</span>`;
+        const moistureBadge = document.getElementById('kpiMoistureStatus');
+        moistureBadge.innerText = "Aguardando Dados";
+        moistureBadge.className = "text-slate-400 font-bold bg-slate-500/10 border border-slate-500/20 px-2 py-0.5 rounded-md";
+
+        document.getElementById('kpiAvgDensity').innerHTML = `0 <span class="text-sm font-semibold text-slate-400">kg/m³</span>`;
+        document.getElementById('kpiAvgTime').innerHTML = `0 <span class="text-sm font-semibold text-slate-400">min</span>`;
+        return;
+      }
+
+      const totalKg = data.reduce((acc, curr) => acc + (curr.pesoLiquido || 0), 0);
+      const totalTon = (totalKg / 1000).toFixed(1);
+
+      const umidadesValidas = data.filter(d => d.umidade > 0);
+      const avgMoisture = umidadesValidas.length > 0 ? 
+        (umidadesValidas.reduce((acc, curr) => acc + curr.umidade, 0) / umidadesValidas.length).toFixed(1) : 0;
+
+      const densidadesValidas = data.filter(d => d.densidade > 0);
+      const avgDensity = densidadesValidas.length > 0 ? 
+        (densidadesValidas.reduce((acc, curr) => acc + curr.densidade, 0) / densidadesValidas.length).toFixed(0) : 0;
+
+      let totalMinutes = 0;
+      let validTimes = 0;
+      data.forEach(d => {
+        const duration = calculateDurationMinutes(d.entrada, d.saida);
+        if (duration !== null && duration > 0) {
+          totalMinutes += duration;
+          validTimes++;
+        }
+      });
+      const avgTime = validTimes > 0 ? Math.round(totalMinutes / validTimes) : '--';
+
+      document.getElementById('kpiTotalWeight').innerHTML = `${Number(totalTon).toLocaleString('pt-BR')} <span class="text-sm font-semibold text-slate-400">Ton</span>`;
+      document.getElementById('kpiTotalTrips').innerText = `${data.length} viagens`;
+
+      document.getElementById('kpiAvgMoisture').innerHTML = `${avgMoisture} <span class="text-sm font-semibold text-slate-400">%</span>`;
+      
+      const moistureBadge = document.getElementById('kpiMoistureStatus');
+      if (avgMoisture <= 12) {
+        moistureBadge.innerText = "Excelente (<12%)";
+        moistureBadge.className = "text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md";
+      } else if (avgMoisture <= 15) {
+        moistureBadge.innerText = "Aceitável (12-15%)";
+        moistureBadge.className = "text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md";
+      } else {
+        moistureBadge.innerText = "Alta (>15%)";
+        moistureBadge.className = "text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md";
+      }
+
+      document.getElementById('kpiAvgDensity').innerHTML = `${avgDensity} <span class="text-sm font-semibold text-slate-400">kg/m³</span>`;
+      document.getElementById('kpiAvgTime').innerHTML = `${avgTime} <span class="text-sm font-semibold text-slate-400">min</span>`;
+    }
+
+    function initCharts() {
+      const ctxEvol = document.getElementById('chartEvolution').getContext('2d');
+      chartEvolution = new Chart(ctxEvol, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', labels: { font: { family: 'Segoe UI', size: 12 }, color: '#cbd5e1' } },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { type: 'linear', display: true, position: 'left', title: { display: true, text: 'Toneladas', color: '#94a3b8' }, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+            y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'Umidade (%)', color: '#94a3b8' }, grid: { drawOnChartArea: false } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+
+      const ctxSectors = document.getElementById('chartSectors').getContext('2d');
+      chartSectors = new Chart(ctxSectors, {
+        type: 'doughnut',
+        data: { labels: [], datasets: [] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#cbd5e1' } } }, cutout: '70%' }
+      });
+
+      const ctxLocVol = document.getElementById('chartLocationsVolume').getContext('2d');
+      chartLocationsVolume = new Chart(ctxLocVol, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, title: { display: true, text: 'Toneladas', color: '#94a3b8' } }, x: { grid: { display: false } } } }
+      });
+
+      const ctxLocTrips = document.getElementById('chartLocationsTrips').getContext('2d');
+      chartLocationsTrips = new Chart(ctxLocTrips, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, title: { display: true, text: 'Nº de Carradas/Viagens', color: '#94a3b8' } }, y: { grid: { display: false } } } }
+      });
+
+      const ctxDensMethod = document.getElementById('chartDensityMethod').getContext('2d');
+      chartDensityMethod = new Chart(ctxDensMethod, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, title: { display: true, text: 'Densidade Média (kg/m³)', color: '#94a3b8' }, beginAtZero: true }, x: { grid: { display: false } } } }
+      });
+
+      const ctxSuppliers = document.getElementById('chartSuppliers').getContext('2d');
+      chartSuppliers = new Chart(ctxSuppliers, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, title: { display: true, text: 'Toneladas', color: '#94a3b8' } }, y: { grid: { display: false } } } }
+      });
+
+      const ctxMoistSup = document.getElementById('chartMoistureSupplier').getContext('2d');
+      chartMoistureSupplier = new Chart(ctxMoistSup, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, title: { display: true, text: 'Umidade Média (%)', color: '#94a3b8' }, beginAtZero: true }, x: { grid: { display: false }, ticks: { font: { size: 11, weight: '600' }, color: '#cbd5e1' } } } }
+      });
+    }
+
+    function updateCharts(data) {
+      if (data.length === 0) {
+        chartEvolution.data = { labels: [], datasets: [] }; chartEvolution.update();
+        chartSectors.data = { labels: [], datasets: [] }; chartSectors.update();
+        chartLocationsVolume.data = { labels: [], datasets: [] }; chartLocationsVolume.update();
+        chartLocationsTrips.data = { labels: [], datasets: [] }; chartLocationsTrips.update();
+        chartDensityMethod.data = { labels: [], datasets: [] }; chartDensityMethod.update();
+        chartSuppliers.data = { labels: [], datasets: [] }; chartSuppliers.update();
+        chartMoistureSupplier.data = { labels: [], datasets: [] }; chartMoistureSupplier.update();
+        return;
+      }
+
+      const dateMap = {};
+      data.forEach(d => {
+        if (!dateMap[d.data]) dateMap[d.data] = { weight: 0, moistureSum: 0, count: 0 };
+        dateMap[d.data].weight += (d.pesoLiquido || 0) / 1000;
+        if (d.umidade > 0) {
+          dateMap[d.data].moistureSum += d.umidade;
+          dateMap[d.data].count++;
+        }
+      });
+
+      const sortedDates = Object.keys(dateMap).sort();
+      chartEvolution.data = {
+        labels: sortedDates,
+        datasets: [
+          { label: 'Volume (Ton)', data: sortedDates.map(dt => dateMap[dt].weight.toFixed(1)), backgroundColor: '#3b82f6', borderRadius: 6, yAxisID: 'y' },
+          { label: 'Umidade (%)', data: sortedDates.map(dt => dateMap[dt].count > 0 ? (dateMap[dt].moistureSum / dateMap[dt].count).toFixed(1) : 0), borderColor: '#06b6d4', backgroundColor: '#06b6d4', type: 'line', tension: 0.3, yAxisID: 'y1' }
+        ]
+      };
+      chartEvolution.update();
+
+      const sectorMap = {};
+      data.forEach(d => { const sec = d.setor || 'Geral'; sectorMap[sec] = (sectorMap[sec] || 0) + ((d.pesoLiquido || 0) / 1000); });
+      chartSectors.data = {
+        labels: Object.keys(sectorMap),
+        datasets: [{ data: Object.values(sectorMap).map(v => v.toFixed(1)), backgroundColor: ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#a855f7', '#f43f5e'] }]
+      };
+      chartSectors.update();
+
+      const locationVolMap = {};
+      const locationTripsMap = {};
+      data.forEach(d => {
+        const loc = d.local || 'Não Informado';
+        locationVolMap[loc] = (locationVolMap[loc] || 0) + ((d.pesoLiquido || 0) / 1000);
+        locationTripsMap[loc] = (locationTripsMap[loc] || 0) + 1;
+      });
+
+      const sortedLocations = Object.keys(locationVolMap).sort((a, b) => locationVolMap[b] - locationVolMap[a]);
+      chartLocationsVolume.data = {
+        labels: sortedLocations,
+        datasets: [{ label: 'Volume (Ton)', data: sortedLocations.map(l => locationVolMap[l].toFixed(1)), backgroundColor: '#06b6d4', borderRadius: 6 }]
+      };
+      chartLocationsVolume.update();
+
+      const sortedTripLocations = Object.keys(locationTripsMap).sort((a, b) => locationTripsMap[b] - locationTripsMap[a]);
+      chartLocationsTrips.data = {
+        labels: sortedTripLocations,
+        datasets: [{ label: 'Carradas', data: sortedTripLocations.map(l => locationTripsMap[l]), backgroundColor: '#0088cc', borderRadius: 6 }]
+      };
+      chartLocationsTrips.update();
+
+      const methodDensityMap = {};
+      data.forEach(d => {
+        const met = d.metodo || 'Outros';
+        if (!methodDensityMap[met]) methodDensityMap[met] = { sumDensity: 0, count: 0 };
+        if (d.densidade > 0) { methodDensityMap[met].sumDensity += d.densidade; methodDensityMap[met].count++; }
+      });
+      const methodLabels = Object.keys(methodDensityMap);
+      const vibrantColors = ['#06b6d4', '#3b82f6', '#a855f7', '#10b981', '#f59e0b', '#f43f5e', '#6366f1'];
+      chartDensityMethod.data = {
+        labels: methodLabels,
+        datasets: [{ label: 'Densidade Média (kg/m³)', data: methodLabels.map(m => methodDensityMap[m].count > 0 ? (methodDensityMap[m].sumDensity / methodDensityMap[m].count).toFixed(1) : 0), backgroundColor: methodLabels.map((_, i) => vibrantColors[i % vibrantColors.length]), borderRadius: 8, barThickness: 26 }]
+      };
+      chartDensityMethod.update();
+
+      const supplierMap = {};
+      const supplierMoistureMap = {};
+      data.forEach(d => {
+        const sup = d.fornecedor || 'Desconhecido';
+        if (!supplierMap[sup]) { supplierMap[sup] = 0; supplierMoistureMap[sup] = { sum: 0, count: 0 }; }
+        supplierMap[sup] += ((d.pesoLiquido || 0) / 1000);
+        if (d.umidade > 0) { supplierMoistureMap[sup].sum += d.umidade; supplierMoistureMap[sup].count++; }
+      });
+
+      const sortedSuppliers = Object.keys(supplierMap).sort((a, b) => supplierMap[b] - supplierMap[a]).slice(0, 7);
+      chartSuppliers.data = {
+        labels: sortedSuppliers,
+        datasets: [{ data: sortedSuppliers.map(s => supplierMap[s].toFixed(1)), backgroundColor: '#3b82f6', borderRadius: 6 }]
+      };
+      chartSuppliers.update();
+
+      const supplierMoistures = sortedSuppliers.map(s => supplierMoistureMap[s] && supplierMoistureMap[s].count > 0 ? (supplierMoistureMap[s].sum / supplierMoistureMap[s].count).toFixed(1) : 0);
+      chartMoistureSupplier.data = {
+        labels: sortedSuppliers,
+        datasets: [{ data: supplierMoistures, backgroundColor: supplierMoistures.map(v => v > 15 ? '#f43f5e' : (v > 12 ? '#f59e0b' : '#10b981')), borderRadius: 8, barThickness: 28 }]
+      };
+      chartMoistureSupplier.update();
+    }
+
+    function renderTable(data) {
+      const thead = document.getElementById('tableHeader');
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      let activeExtraCols = Array.from(selectedExtraColumns);
+      let extraThs = activeExtraCols.map(colName => `<th class="py-3.5 px-4">${colName}</th>`).join('');
+
+      thead.innerHTML = `
+        <tr>
+          <th class="py-3.5 px-4">ID Carga</th>
+          <th class="py-3.5 px-4">Data</th>
+          <th class="py-3.5 px-4 min-w-[170px]">Horários Pátio</th>
+          <th class="py-3.5 px-4">Placa / Motorista</th>
+          <th class="py-3.5 px-4">Fornecedor</th>
+          <th class="py-3.5 px-4">Local Coleta</th>
+          <th class="py-3.5 px-4">Método</th>
+          <th class="py-3.5 px-4 text-right">Peso Líq. (kg)</th>
+          <th class="py-3.5 px-4 text-right">Umidade (%)</th>
+          <th class="py-3.5 px-4 text-right">Densidade</th>
+          <th class="py-3.5 px-4">Setor</th>
+          ${extraThs}
+        </tr>
+      `;
+
+      if (data.length === 0) {
+        const totalCols = 11 + activeExtraCols.length;
+        tbody.innerHTML = `<tr><td colspan="${totalCols}" class="text-center py-6 text-slate-500">Nenhum registro encontrado. Faça o upload de uma planilha de controle.</td></tr>`;
+        return;
+      }
+
+      data.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-tellus-800/60 transition-colors border-b border-card-border/50";
+
+        const umidadeColor = item.umidade > 15 ? 'text-rose-400 font-bold' : (item.umidade > 12 ? 'text-amber-400' : 'text-emerald-400 font-semibold');
+        const durationMin = calculateDurationMinutes(item.entrada, item.saida);
+        const durationText = durationMin !== null ? `${durationMin} min` : '--';
+
+        let extraTds = activeExtraCols.map(colName => `<td class="py-3.5 px-4 text-slate-300">${item.extras[colName] || 'N/D'}</td>`).join('');
+
+        tr.innerHTML = `
+          <td class="py-3.5 px-4 font-mono text-xs text-slate-400">${item.id}</td>
+          <td class="py-3.5 px-4 whitespace-nowrap text-slate-200 font-medium">${item.data}</td>
+          <td class="py-3.5 px-4 whitespace-nowrap">
+            <div class="flex flex-col gap-0.5">
+              <div class="flex items-center gap-2 text-[11px]">
+                <span class="text-emerald-400 font-medium flex items-center gap-1"><i class="fa-solid fa-right-to-bracket text-[10px]"></i> ${item.entrada || '--:--'}</span>
+                <span class="text-slate-500">→</span>
+                <span class="text-rose-400 font-medium flex items-center gap-1"><i class="fa-solid fa-right-from-bracket text-[10px]"></i> ${item.saida || '--:--'}</span>
+              </div>
+              <span class="text-[10px] text-slate-400 bg-tellus-900 border border-card-border px-1.5 py-0.5 rounded w-fit">
+                Permanência: <strong class="text-vivid-cyan">${durationText}</strong>
+              </span>
+            </div>
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="font-bold text-white">${item.placa}</div>
+            <div class="text-[10px] text-slate-400 truncate max-w-[140px]">${item.motorista}</div>
+          </td>
+          <td class="py-3.5 px-4 text-slate-200">${item.fornecedor}</td>
+          <td class="py-3.5 px-4 text-slate-400">${item.local}</td>
+          <td class="py-3.5 px-4 text-slate-400">${item.metodo || 'N/D'}</td>
+          <td class="py-3.5 px-4 text-right font-bold text-white">${Number(item.pesoLiquido).toLocaleString('pt-BR')}</td>
+          <td class="py-3.5 px-4 text-right ${umidadeColor}">${item.umidade ? item.umidade + '%' : 'N/D'}</td>
+          <td class="py-3.5 px-4 text-right text-slate-400">${item.densidade ? item.densidade : 'N/D'}</td>
+          <td class="py-3.5 px-4">
+            <span class="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-tellus-900 text-vivid-cyan border border-card-border">
+              ${item.setor}
+            </span>
+          </td>
+          ${extraTds}
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
